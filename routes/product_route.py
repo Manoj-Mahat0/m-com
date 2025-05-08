@@ -105,6 +105,7 @@ async def get_products_grouped_by_category():
     products = await db["products"].find().to_list(length=None)
     categories = await db["categories"].find().to_list(length=None)
 
+    # Build a map of category_id to name/image
     category_map = {
         str(cat["_id"]): {
             "name": cat.get("name", "Unnamed"),
@@ -114,8 +115,10 @@ async def get_products_grouped_by_category():
     }
 
     grouped = {}
+
     for prod in products:
-        cat_id = prod.get("category", {}).get("id")
+        category = prod.get("category", {})
+        cat_id = category.get("id") if isinstance(category, dict) else None
         if not cat_id:
             continue
 
@@ -142,5 +145,6 @@ async def get_products_grouped_by_category():
         })
 
     return list(grouped.values())
+
 
 
