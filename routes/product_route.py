@@ -105,7 +105,10 @@ async def get_products_grouped_by_category():
     pipeline = [
         {
             "$group": {
-                "_id": "$category.name",
+                "_id": {
+                    "name": "$category.name",
+                    "id": "$category.id"
+                },
                 "products": {
                     "$push": {
                         "id": {"$toString": "$_id"},
@@ -120,8 +123,30 @@ async def get_products_grouped_by_category():
             }
         },
         {
+            "$lookup": {
+                "from": "categories",
+                "let": {"catId": {"$toObjectId": "$_id.id"}},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {"$eq": ["$_id", "$$catId"]}
+                        }
+                    },
+                    {
+                        "$project": {"image": 1, "_id": 0}
+                    }
+                ],
+                "as": "category_info"
+            }
+        },
+        {
+            "$unwind": {"path": "$category_info", "preserveNullAndEmptyArrays": True}
+        },
+        {
             "$project": {
-                "category": "$_id",
+                "category": "$_id.name",
+                "category_id": "$_id.id",
+                "category_image": "$category_info.image",
                 "products": 1,
                 "_id": 0
             }
