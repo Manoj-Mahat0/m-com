@@ -102,17 +102,17 @@ async def delete_product(product_id: str, _: dict = Depends(admin_only)):
 
 @router.get("/by-category")
 async def get_products_grouped_by_category():
-    # Step 1: Get all products
     products = await db["products"].find().to_list(length=None)
-    
-    # Step 2: Get all categories
     categories = await db["categories"].find().to_list(length=None)
+
     category_map = {
-        str(cat["_id"]): {"name": cat["name"], "image": cat["image"]}
+        str(cat["_id"]): {
+            "name": cat.get("name", "Unnamed"),
+            "image": cat.get("image", "")
+        }
         for cat in categories
     }
 
-    # Step 3: Group products
     grouped = {}
     for prod in products:
         cat_id = prod.get("category", {}).get("id")
@@ -142,4 +142,5 @@ async def get_products_grouped_by_category():
         })
 
     return list(grouped.values())
+
 
