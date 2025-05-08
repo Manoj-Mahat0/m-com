@@ -102,56 +102,44 @@ async def delete_product(product_id: str, _: dict = Depends(admin_only)):
 
 @router.get("/by-category")
 async def get_products_grouped_by_category():
-    pipeline = [
-        {
-            "$group": {
-                "_id": {
-                    "name": "$category.name",
-                    "id": "$category.id"
-                },
-                "products": {
-                    "$push": {
-                        "id": {"$toString": "$_id"},
-                        "name": "$name",
-                        "description": "$description",
-                        "price": "$price",
-                        "feature_image": "$feature_image",
-                        "product_images": "$product_images",
-                        "category_id": {"$toString": "$category.id"}
-                    }
-                }
-            }
-        },
-        {
-            "$lookup": {
-                "from": "categories",
-                "let": {"catId": {"$toObjectId": "$_id.id"}},
-                "pipeline": [
-                    {
-                        "$match": {
-                            "$expr": {"$eq": ["$_id", "$$catId"]}
-                        }
-                    },
-                    {
-                        "$project": {"image": 1, "_id": 0}
-                    }
-                ],
-                "as": "category_info"
-            }
-        },
-        {
-            "$unwind": {"path": "$category_info", "preserveNullAndEmptyArrays": True}
-        },
-        {
-            "$project": {
-                "category": "$_id.name",
-                "category_id": "$_id.id",
-                "category_image": "$category_info.image",
-                "products": 1,
-                "_id": 0
-            }
-        }
-    ]
+    # Step 1: Get all products
+    products = await db["products"].find().to_list(length=None)
+    
+    # Step 2: Get all categories
+    categories = await db["categories"].find().to_list(length=None)
+    category_map = {
+        str(cat["_id"]): {"name": cat["name"], "image": cat["image"]}
+        for cat in categories
+    }
 
-    result = await db["products"].aggregate(pipeline).to_list(length=None)
-    return result
+    # Step 3: Group products
+    grouped = {}
+    for prod in products:
+        cat_id = prod.get("category", {}).get("id")
+        if not cat_id:
+            continue
+
+        cat_data = category_map.get(cat_id, {})
+        cat_name = cat_data.get("name", "Unknown")
+        cat_image = cat_data.get("image", "")
+
+        if cat_id not in grouped:
+            grouped[cat_id] = {
+                "category": cat_name,
+                "category_id": cat_id,
+                "category_image": cat_image,
+                "products": []
+            }
+
+        grouped[cat_id]["products"].append({
+            "id": str(prod["_id"]),
+            "name": prod["name"],
+            "description": prod["description"],
+            "price": prod["price"],
+            "feature_image": prod["feature_image"],
+            "product_images": prod["product_images"],
+            "category_id": cat_id
+        })
+
+    return list(grouped.values())
+
