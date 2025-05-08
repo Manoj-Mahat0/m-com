@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from bson import ObjectId
 from database import db
 from utils.token_helper import get_current_user
-from config import Key
+from config import STRIPE_KEY
 
 router = APIRouter()
-stripe.api_key = Key
+stripe.api_key = STRIPE_KEY
 
 @router.post("/create-checkout-session")
 async def create_checkout_session(address_id: str, user: dict = Depends(get_current_user)):
